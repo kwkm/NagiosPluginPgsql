@@ -1,0 +1,5 @@
+{
+    "require": {
+        "kwkm/nagios-plugin-sdk": "dev-master"
+    }
+}
