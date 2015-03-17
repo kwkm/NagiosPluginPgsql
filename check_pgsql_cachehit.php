@@ -12,6 +12,7 @@ namespace Kwkm\NagiosPlugin\Pgsql;
 use \PDO;
 use Kwkm\NagiosPluginSDK\NagiosThresholdPair;
 use Kwkm\NagiosPluginSDK\NagiosStatus;
+use Kwkm\NagiosPluginSDK\NagiosOutput;
 
 require_once __DIR__ . '/vendor/autoload.php';
 
@@ -45,21 +46,18 @@ class check_pgsql_cachehit
         if (!is_null($this->critical)) {
             $criticalThresholed = new NagiosThresholdPair($this->critical);
             if (!$criticalThresholed->check($value)) {
-                echo 'CRITICAL - ' . $value . PHP_EOL;
-                exit(NagiosStatus::CRITICAL);
+                NagiosOutput::display(NagiosStatus::CRITICAL, $value);
             }
         }
 
         if (!is_null($this->warning)) {
             $warningThresholed = new NagiosThresholdPair($this->warning);
             if (!$warningThresholed->check($value)) {
-                echo 'WARNING - ' . $value . PHP_EOL;
-                exit(NagiosStatus::WARNING);
+                NagiosOutput::display(NagiosStatus::WARNING, $value);
             }
         }
 
-        echo 'OK - ' . $value . PHP_EOL;
-        exit(NagiosStatus::OK);
+        NagiosOutput::display(NagiosStatus::OK, $value);
     }
 
     private function getData()
@@ -77,8 +75,7 @@ class check_pgsql_cachehit
                     break;
             }
         } catch (\Exception $ex) {
-            echo 'UNKNOWN - ' . $ex->getMessage() . PHP_EOL;
-            exit(NagiosStatus::UNKNOWN);
+            NagiosOutput::display(NagiosStatus::UNKNOWN, $ex->getMessage());
         }
     }
 
