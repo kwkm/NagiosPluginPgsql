@@ -10,6 +10,7 @@
 namespace Kwkm\NagiosPlugin\Pgsql;
 
 use \PDO;
+use Kwkm\OptParser\OptParser;
 use Kwkm\NagiosPluginSDK\NagiosThresholdPair;
 use Kwkm\NagiosPluginSDK\NagiosStatus;
 use Kwkm\NagiosPluginSDK\NagiosOutput;
@@ -31,6 +32,8 @@ class check_pgsql_cachehit
     private $password;
     private $type;
     private $rel;
+
+    private $optParser;
 
     public function run()
     {
@@ -131,121 +134,163 @@ class check_pgsql_cachehit
         return $result;
     }
 
-    private function parseArgument($options)
+    private function parseArgument()
     {
-        if (isset($options['V'])) {
+        if ($this->optParser->isOption('-V')) {
             $this->outputVersion();
             exit(NagiosStatus::OK);
         }
 
-        if (isset($options['help'])) {
+        if ($this->optParser->isOption('-?')) {
             $this->outputHelp();
             exit(NagiosStatus::OK);
         }
 
-        if ((!isset($options['h'])) || (!isset($options['d'])) || (!isset($options['username'])) || (!isset($options['password']))) {
+        if (!$this->optParser->checkRequired()) {
             $this->outputHelp();
-            exit(NagiosStatus::OK);
+            exit(NagiosStatus::UNKNOWN);
+        }
+
+        $this->address = $this->optParser->getOption('-h');
+        $this->database = $this->optParser->getOption('-d');
+        $this->username = $this->optParser->getOption('-U');
+        $this->password = $this->optParser->getOption('-P');
+
+        $this->timeout = $this->optParser->getOption('-t');
+        $this->port = $this->optParser->getOption('-p');
+        $this->critical = $this->optParser->getOption('-c');
+        $this->warning = $this->optParser->getOption('-w');
+
+        switch ($this->optParser->getOption('--type')) {
+            case 'table':
+                $this->type = 'table';
+                break;
+            case 'index':
+                $this->type = 'index';
+                break;
+            default:
+                $this->type = 'db';
+        }
+
+        if (!$this->optParser->isOption('--rel')) {
+            $this->rel = $this->database;
         } else {
-            $this->address = $options['h'];
-            $this->database = $options['d'];
-            $this->username = $options['username'];
-            $this->password = $options['password'];
-        }
-
-        if (isset($options['t'])) {
-            $this->timeout = $options['t'];
-        } else {
-            $this->timeout = 10;
-        }
-
-        if (isset($options['p'])) {
-            $this->port = $options['p'];
-        } else {
-            $this->port = 5432;
-        }
-
-        if (isset($options['c'])) {
-            $this->critical = $options['c'];
-        }
-
-        if (isset($options['w'])) {
-            $this->warning = $options['w'];
-        }
-
-        if (!isset($options['type'])) {
-            $this->type = 'db';
-        } else {
-            switch ($options['type']) {
-                case 'table':
-                    $this->type = 'table';
-                    break;
-                case 'index':
-                    $this->type = 'index';
-                    break;
-                default:
-                    $this->type = 'db';
-            }
-        }
-
-        if (!isset($options['rel'])) {
-            $this->rel = $options['d'];
-        } else {
-            $this->rel = $options['rel'];
+            $this->rel = $this->optParser->getOption('--rel');
         }
     }
 
     private function outputVersion()
     {
         echo 'check_pgsql_cachehit Version ', check_pgsql_cachehit::VERSION, PHP_EOL;
-        echo 'usage: check_pgsql_cachehit -h <DB Address> --username <DB User> --password <DB Password> -d <DB Name>', PHP_EOL;
+        echo 'usage: check_pgsql_cachehit -h <DB Address> -U <DB User> -P <DB Password> -d <DB Name>', PHP_EOL;
     }
 
     private function outputHelp()
     {
         $this->outputVersion();
-        echo PHP_EOL;
-        echo '<Require>', PHP_EOL;
-        echo ' -h', PHP_EOL;
-        echo '   DB Address', PHP_EOL;
-        echo ' --username', PHP_EOL;
-        echo '   DB User', PHP_EOL;
-        echo ' --password', PHP_EOL;
-        echo '   DB Password', PHP_EOL;
-        echo ' -d', PHP_EOL;
-        echo '   DB Name', PHP_EOL;
-        echo PHP_EOL;
-        echo '<Optional>', PHP_EOL;
-        echo ' -c', PHP_EOL;
-        echo '   Critical Threshold', PHP_EOL;
-        echo ' -w', PHP_EOL;
-        echo '   Warning Threshold', PHP_EOL;
-        echo ' --type <db|table|index>', PHP_EOL;
-        echo '   Monitoring target / default: db', PHP_EOL;
-        echo ' --rel <DB Name|Table Name>', PHP_EOL;
-        echo '   Relation target / default: DB Name', PHP_EOL;
-        echo ' -t', PHP_EOL;
-        echo '   Timeout / default: 10', PHP_EOL;
+        $this->optParser->help();
     }
 
-    public function __construct()
+    private function initializationOption()
     {
-        $this->parseArgument(
-            getopt(
-                "h:d:c:w:p:t:V",
-                array(
-                    'username:',
-                    'password:',
-                    'type:',
-                    'rel:',
-                    'help',
-                )
+        $this->optParser->addOption(
+            '-h',
+            array(
+                'alias' => '--host',
+                'var' => 'HOSTNAME',
+                'help' => 'database server host',
+                'required' => true,
+            )
+        )->addOption(
+            '-U',
+            array(
+                'alias' => '--username',
+                'var' => 'USERNAME',
+                'help' => 'database user name',
+                'required' => true,
+            )
+        )->addOption(
+            '-P',
+            array(
+                'alias' => '--password',
+                'var' => 'PASSWORD',
+                'help' => 'database user password',
+                'required' => true,
+            )
+        )->addOption(
+            '-d',
+            array(
+                'alias' => '--database',
+                'var' => 'DBNAME',
+                'help' => 'database name',
+                'required' => true,
+            )
+        )->addOption(
+            '-p',
+            array(
+                'alias' => '--port',
+                'var' => 'PORTNUMBER',
+                'help' => 'database port / default: 5432',
+                'default' => '5432',
+            )
+        )->addOption(
+            '-c',
+            array(
+                'alias' => '--critical',
+                'var' => 'THRESHOLD',
+                'help' => 'Critical Threshold',
+            )
+        )->addOption(
+            '-w',
+            array(
+                'alias' => '--warning',
+                'var' => 'THRESHOLD',
+                'help' => 'Warning Threshold',
+            )
+        )->addOption(
+            '--type',
+            array(
+                'var' => '<db|table|index>',
+                'help' => 'Monitoring target / default: db',
+                'default' => 'db',
+            )
+        )->addOption(
+            '--rel',
+            array(
+                'var' => '<DB Name|Table Name>',
+                'help' => 'Relation target / default: DB Name',
+            )
+        )->addOption(
+            '-t',
+            array(
+                'var' => 'SECOND',
+                'help' => 'Timeout / default: 10',
+                'default' => '10',
+            )
+        )->addOption(
+            '-V',
+            array(
+                'alias' => '--version',
+                'help' => 'show this version, then exit',
+            )
+        )->addOption(
+            '-?',
+            array(
+                'alias' => '--help',
+                'help' => 'show this help, then exit',
             )
         );
     }
+
+    public function __construct($argv)
+    {
+        $this->optParser = new OptParser($argv);
+        $this->initializationOption();
+        $this->parseArgument();
+    }
 }
 
-$plugin = new check_pgsql_cachehit();
+$plugin = new check_pgsql_cachehit($argv);
 $plugin->run();
 
 

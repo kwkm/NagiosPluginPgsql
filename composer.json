@@ -1,5 +1,6 @@
 {
     "require": {
-        "kwkm/nagios-plugin-sdk": "dev-master"
+        "kwkm/nagios-plugin-sdk": "dev-master",
+        "kwkm/optparser": "dev-master"
     }
 }
